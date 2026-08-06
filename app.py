@@ -4,12 +4,41 @@ A simple Flask web application to test Tesseract OCR functionality.
 """
 
 import os
+import sys
 from flask import Flask, render_template, request, jsonify
 import pytesseract
 from PIL import Image
 import io
 
+# Явно указываем путь к исполняемому файлу tesseract
+# Tesseract обычно установлен в /usr/bin/tesseract в Linux/Docker окружениях
+tesseract_cmd = '/usr/bin/tesseract'
+
+if os.path.isfile(tesseract_cmd):
+    pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+    TESSERACT_AVAILABLE = True
+else:
+    # Пытаемся найти через PATH
+    import shutil
+    tesseract_cmd = shutil.which('tesseract')
+    if tesseract_cmd:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+        TESSERACT_AVAILABLE = True
+    else:
+        TESSERACT_AVAILABLE = False
+
 app = Flask(__name__)
+
+# Проверка доступности Tesseract при старте
+def check_tesseract_status():
+    """Проверяет, доступен ли Tesseract и возвращает статус."""
+    if not TESSERACT_AVAILABLE:
+        return False, "Tesseract executable not found in system"
+    try:
+        version = pytesseract.get_tesseract_version()
+        return True, f"Tesseract version: {version}"
+    except Exception as e:
+        return False, str(e)
 
 # Configure upload folder
 UPLOAD_FOLDER = 'uploads'
@@ -30,6 +59,8 @@ def allowed_file(filename):
 
 def get_tesseract_version():
     """Get Tesseract version information."""
+    if not TESSERACT_AVAILABLE:
+        return "ERROR: tesseract is not installed or it's not in your PATH"
     try:
         version = pytesseract.get_tesseract_version()
         return str(version)
@@ -39,6 +70,8 @@ def get_tesseract_version():
 
 def get_available_languages():
     """Get list of available Tesseract languages."""
+    if not TESSERACT_AVAILABLE:
+        return ["ERROR: tesseract is not installed or it's not in your PATH"]
     try:
         langs = pytesseract.get_languages(config='')
         return langs
@@ -62,6 +95,9 @@ def index():
 @app.route('/api/ocr', methods=['POST'])
 def ocr_endpoint():
     """API endpoint for OCR processing."""
+    if not TESSERACT_AVAILABLE:
+        return jsonify({'error': 'Tesseract is not installed or not in your PATH'}), 503
+        
     if 'image' not in request.files and 'image' not in request.form:
         return jsonify({'error': 'No image provided'}), 400
     
