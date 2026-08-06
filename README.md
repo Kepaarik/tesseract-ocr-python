@@ -25,15 +25,33 @@ A simple Flask web application to test Tesseract OCR functionality.
 ```bash
 sudo apt-get update
 sudo apt-get install tesseract-ocr libtesseract-dev
+sudo apt-get install tesseract-ocr-rus  # Russian language support
 ```
 
 **macOS:**
 ```bash
 brew install tesseract
+brew install tesseract-lang  # Additional languages including Russian
 ```
 
 **Windows:**
-Download from: https://github.com/UB-Mannheim/tesseract/wiki
+1. Download the installer from: https://github.com/UB-Mannheim/tesseract/wiki
+   - Choose the latest version (e.g., `tesseract-ocr-w64-setup-5.x.x.exe`)
+   
+2. Run the installer and install to the default location:
+   - Default path: `C:\Program Files\Tesseract-OCR\`
+   - **Important:** During installation, check "Additional language data" and select **Russian (rus)** and **English (eng)**
+
+3. After installation, verify that `tesseract.exe` exists at:
+   - `C:\Program Files\Tesseract-OCR\tesseract.exe`
+
+The application will automatically detect the Tesseract path on Windows. If you installed Tesseract to a different location, edit `app.py`:
+
+```python
+if platform.system() == 'Windows':
+    tesseract_path = r"C:\Your\Custom\Path\tesseract.exe"  # Update this path
+    pytesseract.pytesseract.tesseract_cmd = tesseract_path
+```
 
 ### 2. Install Python Dependencies
 
@@ -99,25 +117,41 @@ curl http://localhost:5000/api/test
 
 ## Troubleshooting
 
-### Tesseract Not Found
-If you get a "Tesseract is not installed" error:
-1. Ensure Tesseract is installed on your system
-2. Verify it's in your PATH: `which tesseract`
-3. On Windows, you may need to set the TESSDATA_PREFIX environment variable
+### Tesseract Not Found (Windows)
 
-### Language Not Available
-To install additional languages:
+If you get "ERROR: tesseract is not installed or it's not in your PATH" on Windows:
 
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install tesseract-ocr-rus  # Russian example
-sudo apt-get install tesseract-ocr-deu  # German example
-```
+1. **Verify Installation**: Make sure Tesseract OCR is installed at `C:\Program Files\Tesseract-OCR\tesseract.exe`
 
-**macOS:**
-```bash
-brew install tesseract-lang
-```
+2. **Check the Path in Code**: The application automatically tries these paths:
+   - `C:\Program Files\Tesseract-OCR\tesseract.exe`
+   - `C:\Program Files (x86)\Tesseract-OCR\tesseract.exe`
+   
+   If installed elsewhere, edit `app.py` and update the path:
+   ```python
+   if platform.system() == 'Windows':
+       tesseract_path = r"C:\Your\Actual\Path\tesseract.exe"
+       pytesseract.pytesseract.tesseract_cmd = tesseract_path
+   ```
+
+3. **Add to PATH (Optional)**: You can also add Tesseract to your system PATH:
+   - Right-click "This PC" → Properties → Advanced System Settings
+   - Click "Environment Variables"
+   - Under "System variables", find and edit "Path"
+   - Add: `C:\Program Files\Tesseract-OCR\`
+
+4. **Install Language Data**: During Tesseract installation, make sure to select:
+   - English (eng)
+   - Russian (rus)
+   
+   Or re-run the installer and modify the installation to add languages.
+
+### Tesseract Not Found (Linux/macOS)
+
+1. Ensure Tesseract is installed: `which tesseract`
+2. Install missing languages:
+   - Ubuntu: `sudo apt-get install tesseract-ocr-rus`
+   - macOS: `brew install tesseract-lang`
 
 ## License
 
