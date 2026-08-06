@@ -339,8 +339,13 @@
                 <div class="option-group">
                     <label for="language">Language</label>
                     <select id="language">
+                        <option value="eng+rus" selected>English + Russian (bilingual)</option>
+                        <option value="eng">English only</option>
+                        <option value="rus">Russian only</option>
                         {% for lang in available_languages %}
+                        {% if lang != 'eng' and lang != 'rus' %}
                         <option value="{{ lang }}">{{ lang }}</option>
+                        {% endif %}
                         {% endfor %}
                     </select>
                 </div>
@@ -516,7 +521,13 @@
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
-                    resultText.textContent = `Test Result:\n${data.ocr_result}\n\nExpected: ${data.test_image_text}\n\nMatch: ${data.match ? '✅ Yes' : '❌ No'}\n\nTesseract Version: ${data.tesseract_version}\nAvailable Languages: ${data.available_languages.join(', ')}`;
+                    const langStatus = [];
+                    if (data.english_detected) langStatus.push('✅ English');
+                    else langStatus.push('❌ English');
+                    if (data.russian_detected) langStatus.push('✅ Russian');
+                    else langStatus.push('❌ Russian');
+                    
+                    resultText.textContent = `Test Result:\n${data.ocr_result}\n\nExpected English: ${data.test_image_english}\nExpected Russian: ${data.test_image_russian}\n\nLanguage Detection:\n${langStatus.join('\n')}\nBoth Languages Working: ${data.both_languages_working ? '✅ Yes' : '❌ No'}\n\nTesseract Version: ${data.tesseract_version}\nAvailable Languages: ${data.available_languages.join(', ')}`;
                     
                     statsSection.style.display = 'none';
                     resultSection.classList.add('active');

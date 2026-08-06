@@ -51,9 +51,12 @@ def index():
     """Render the main page."""
     tesseract_version = get_tesseract_version()
     available_languages = get_available_languages()
+    # Default to both English and Russian
+    default_lang = 'eng+rus'
     return render_template('index.html', 
                          tesseract_version=tesseract_version,
-                         available_languages=available_languages)
+                         available_languages=available_languages,
+                         default_lang=default_lang)
 
 
 @app.route('/api/ocr', methods=['POST'])
@@ -83,8 +86,8 @@ def ocr_endpoint():
             image_bytes = base64.b64decode(image_data)
             image = Image.open(io.BytesIO(image_bytes))
         
-        # Get optional parameters
-        lang = request.form.get('lang', 'eng')
+        # Get optional parameters - default to eng+rus for bilingual support
+        lang = request.form.get('lang', 'eng+rus')
         psm = request.form.get('psm', None)
         oem = request.form.get('oem', None)
         
@@ -122,33 +125,47 @@ def ocr_endpoint():
 
 @app.route('/api/test', methods=['GET'])
 def test_endpoint():
-    """Test endpoint to verify Tesseract is working."""
+    """Test endpoint to verify Tesseract is working with English and Russian."""
     try:
-        # Create a simple test image with known text
         from PIL import ImageDraw, ImageFont
         
-        # Create a simple white image with black text
-        img = Image.new('RGB', (400, 100), color='white')
+        # Create a test image with both English and Russian text
+        img = Image.new('RGB', (500, 150), color='white')
         draw = ImageDraw.Draw(img)
         
-        # Try to use default font
+        # Try to use a font that supports Cyrillic
         try:
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
         except:
-            font = ImageFont.load_default()
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 24)
+            except:
+                font = ImageFont.load_default()
         
-        draw.text((10, 30), "Hello World! OCR Test 123.", fill='black', font=font)
+        # Add both English and Russian text
+        english_text = "Hello World! OCR Test 123."
+        russian_text = "Привет мир! Тест OCR 123."
         
-        # Perform OCR on the test image
-        text = pytesseract.image_to_string(img, lang='eng')
+        draw.text((10, 30), english_text, fill='black', font=font)
+        draw.text((10, 70), russian_text, fill='black', font=font)
+        
+        # Perform OCR with both English and Russian languages
+        text = pytesseract.image_to_string(img, lang='eng+rus')
+        
+        # Check if both languages are detected
+        has_english = 'Hello' in text or 'World' in text or 'OCR' in text
+        has_russian = 'Привет' in text or 'мир' in text or 'Тест' in text
         
         return jsonify({
             'success': True,
             'tesseract_version': get_tesseract_version(),
             'available_languages': get_available_languages(),
-            'test_image_text': 'Hello World! OCR Test 123.',
+            'test_image_english': english_text,
+            'test_image_russian': russian_text,
             'ocr_result': text.strip(),
-            'match': 'Hello World' in text or 'OCR Test' in text
+            'english_detected': has_english,
+            'russian_detected': has_russian,
+            'both_languages_working': has_english and has_russian
         })
     
     except Exception as e:
