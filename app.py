@@ -6,10 +6,14 @@ A simple Flask web application to test Tesseract OCR functionality.
 import os
 import sys
 import platform
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 import pytesseract
 from PIL import Image
 import io
+import tempfile
+import shutil
+from pdf2image import convert_from_path
+from docx import Document
 
 # === НАСТРОЙКА TESSERACT ДЛЯ WINDOWS ===
 # Если система Windows, указываем путь к tesseract.exe явно
@@ -71,6 +75,7 @@ def check_tesseract_status():
 # Configure upload folder
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff', 'webp'}
+ALLOWED_PDF_EXTENSIONS = {'pdf'}
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -83,6 +88,12 @@ def allowed_file(filename):
     """Check if the file has an allowed extension."""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def allowed_pdf_file(filename):
+    """Check if the file is a PDF."""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_PDF_EXTENSIONS
 
 
 def get_tesseract_version():
@@ -126,10 +137,54 @@ def ocr_endpoint():
     if not TESSERACT_AVAILABLE:
         return jsonify({'error': 'Tesseract is not installed or not in your PATH'}), 503
         
-    if 'image' not in request.files and 'image' not in request.form:
-        return jsonify({'error': 'No image provided'}), 400
+    if 'image' not in request.files and 'image' not in request.form and 'pdf' not in request.files:
+        return jsonify({'error': 'No image or PDF provided'}), 400
     
     try:
+        # Handle PDF files
+        if 'pdf' in request.files:
+            file = request.files['pdf']
+            if file.filename == '':
+                return jsonify({'error': 'No selected file'}), 400
+            
+            if not allowed_pdf_file(file.filename):
+                return jsonify({'error': 'File type not allowed. Only PDF files are accepted.'}), 400
+            
+            # Save PDF temporarily
+            temp_dir = tempfile.mkdtemp()
+            pdf_path = os.path.join(temp_dir, file.filename)
+            file.save(pdf_path)
+            
+            # Get optional parameters
+            lang = request.form.get('lang', 'eng+rus')
+            psm = request.form.get('psm', None)
+            
+            # Build config string
+            config = ''
+            if psm:
+                config += f' --psm {psm}'
+            
+            # Convert PDF to images
+            images = convert_from_path(pdf_path, dpi=300)
+            
+            # Process each page
+            all_text = []
+            for i, image in enumerate(images):
+                page_text = pytesseract.image_to_string(image, lang=lang, config=config)
+                all_text.append(f"--- Page {i+1} ---\n{page_text}")
+            
+            # Cleanup
+            shutil.rmtree(temp_dir)
+            
+            text = '\n\n'.join(all_text)
+            
+            return jsonify({
+                'success': True,
+                'text': text,
+                'language': lang,
+                'pages_processed': len(images)
+            })
+        
         # Get image from form data (base64 or file upload)
         if 'image' in request.files:
             file = request.files['image']
@@ -237,6 +292,69 @@ def test_endpoint():
             'success': False,
             'error': str(e)
         }), 500
+
+
+@app.route('/api/export-docx', methods=['POST'])
+def export_docx_endpoint():
+    """API endpoint to export OCR result as Word document."""
+    if not TESSERACT_AVAILABLE:
+        return jsonify({'error': 'Tesseract is not installed or not in your PATH'}), 503
+    
+    try:
+        data = request.get_json()
+        text = data.get('text', '')
+        language = data.get('language', 'eng+rus')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+        
+        # Create a new Document
+        doc = Document()
+        
+        # Add title
+        doc.add_heading('OCR Result', 0)
+        
+        # Add metadata
+        doc.add_paragraph(f'Language: {language}')
+        doc.add_paragraph(f'Date: {__import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+        doc.add_paragraph()
+        
+        # Add the recognized text
+        # Split by lines and preserve structure
+        lines = text.split('\n')
+        for line in lines:
+            if line.strip():
+                doc.add_paragraph(line)
+            else:
+                doc.add_paragraph()  # Empty line
+        
+        # Save to temporary file
+        temp_dir = tempfile.mkdtemp()
+        docx_path = os.path.join(temp_dir, 'ocr_result.docx')
+        doc.save(docx_path)
+        
+        # Send file
+        response = send_file(
+            docx_path,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            as_attachment=True,
+            download_name='ocr_result.docx'
+        )
+        
+        # Cleanup after sending (note: this might not work perfectly with send_file)
+        # For production, consider using a background task or different approach
+        import atexit
+        def cleanup():
+            try:
+                shutil.rmtree(temp_dir)
+            except:
+                pass
+        atexit.register(cleanup)
+        
+        return response
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':

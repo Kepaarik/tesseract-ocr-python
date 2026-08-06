@@ -328,9 +328,9 @@
         <div class="main-content">
             <div class="upload-area" id="uploadArea">
                 <div class="upload-icon">📁</div>
-                <div class="upload-text">Drag & drop an image here or click to browse</div>
-                <div class="upload-hint">Supported formats: PNG, JPG, JPEG, GIF, BMP, TIFF, WEBP</div>
-                <input type="file" id="fileInput" accept="image/*">
+                <div class="upload-text">Drag & drop an image or PDF here or click to browse</div>
+                <div class="upload-hint">Supported formats: PNG, JPG, JPEG, GIF, BMP, TIFF, WEBP, PDF</div>
+                <input type="file" id="fileInput" accept="image/*,.pdf">
             </div>
             
             <img id="previewImage" class="preview-image" alt="Image preview">
@@ -366,12 +366,12 @@
                 </div>
             </div>
             
-            <button class="btn" id="processBtn" disabled>🚀 Process Image</button>
+            <button class="btn" id="processBtn" disabled>🚀 Process File</button>
             <button class="btn test-btn" id="testBtn">🧪 Run Built-in Test</button>
             
             <div class="loading" id="loading">
                 <div class="spinner"></div>
-                <div>Processing image...</div>
+                <div id="loadingText">Processing file...</div>
             </div>
             
             <div class="error-message" id="errorMessage"></div>
@@ -379,7 +379,10 @@
             <div class="result-section" id="resultSection">
                 <div class="result-header">
                     <h2 class="result-title">📄 Extracted Text</h2>
-                    <button onclick="copyResult()" style="padding: 8px 15px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">📋 Copy</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="copyResult()" style="padding: 8px 15px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">📋 Copy</button>
+                        <button onclick="exportToWord()" style="padding: 8px 15px; background: #2b579a; color: white; border: none; border-radius: 5px; cursor: pointer;">📝 Export to Word</button>
+                    </div>
                 </div>
                 <div class="result-box" id="resultText"></div>
                 
@@ -450,21 +453,28 @@
         });
         
         function handleFile(file) {
-            if (!file.type.startsWith('image/')) {
-                showError('Please select a valid image file');
+            const isPdf = file.type === 'application/pdf';
+            const isImage = file.type.startsWith('image/');
+            
+            if (!isPdf && !isImage) {
+                showError('Please select a valid image or PDF file');
                 return;
             }
             
             selectedFile = file;
             processBtn.disabled = false;
             
-            // Show preview
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                previewImage.src = e.target.result;
-                previewImage.classList.add('active');
-            };
-            reader.readAsDataURL(file);
+            // Show preview for images only
+            if (isImage) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewImage.src = e.target.result;
+                    previewImage.classList.add('active');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                previewImage.classList.remove('active');
+            }
             
             hideError();
             resultSection.classList.remove('active');
@@ -478,8 +488,17 @@
             resultSection.classList.remove('active');
             
             const formData = new FormData();
-            formData.append('image', selectedFile);
             formData.append('lang', document.getElementById('language').value);
+            
+            // Check if it's a PDF or image
+            const isPdf = selectedFile.type === 'application/pdf';
+            if (isPdf) {
+                formData.append('pdf', selectedFile);
+                document.getElementById('loadingText').textContent = `Processing PDF (${selectedFile.name})...`;
+            } else {
+                formData.append('image', selectedFile);
+                document.getElementById('loadingText').textContent = 'Processing image...';
+            }
             
             const psm = document.getElementById('psm').value;
             if (psm) {
@@ -505,6 +524,7 @@
                 showError('Network error: ' + error.message);
             } finally {
                 showLoading(false);
+                document.getElementById('loadingText').textContent = 'Processing file...';
             }
         });
         
@@ -579,6 +599,52 @@
                 console.error('Failed to copy:', err);
             });
         }
+        
+        let currentResultData = null;
+        
+        function exportToWord() {
+            if (!currentResultData || !currentResultData.text) {
+                showError('No text to export. Please process an image or PDF first.');
+                return;
+            }
+            
+            fetch('/api/export-docx', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    text: currentResultData.text,
+                    language: currentResultData.language || 'eng+rus'
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Export failed');
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'ocr_result.docx';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                showError('Failed to export to Word: ' + error.message);
+            });
+        }
+        
+        // Store current result data for export
+        const originalDisplayResult = displayResult;
+        displayResult = function(data) {
+            currentResultData = data;
+            originalDisplayResult(data);
+        };
     </script>
 </body>
 </html>
