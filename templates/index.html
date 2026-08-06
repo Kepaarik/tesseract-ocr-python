@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tesseract OCR Test</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .info-bar {
+            background: #f8f9fa;
+            padding: 15px 30px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .info-value {
+            color: #667eea;
+            font-weight: 500;
+        }
+        
+        .main-content {
+            padding: 30px;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9ff;
+            margin-bottom: 20px;
+        }
+        
+        .upload-area:hover {
+            background: #eef1ff;
+            border-color: #764ba2;
+        }
+        
+        .upload-area.dragover {
+            background: #e0e4ff;
+            border-color: #764ba2;
+            transform: scale(1.02);
+        }
+        
+        .upload-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        
+        .upload-text {
+            font-size: 1.2em;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        
+        .upload-hint {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .option-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .option-group label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9em;
+        }
+        
+        .option-group select,
+        .option-group input[type="checkbox"] {
+            padding: 10px;
+            border: 2px solid #e9ecef;
+            border-radius: 5px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        
+        .option-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .checkbox-group {
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+            font-weight: 600;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .test-btn {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            margin-top: 15px;
+        }
+        
+        .result-section {
+            margin-top: 30px;
+            display: none;
+        }
+        
+        .result-section.active {
+            display: block;
+        }
+        
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .result-title {
+            font-size: 1.5em;
+            color: #495057;
+        }
+        
+        .result-box {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 150px;
+            font-family: 'Courier New', monospace;
+            font-size: 1em;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .preview-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .preview-image.active {
+            display: block;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            background: #fee;
+            border: 2px solid #fcc;
+            color: #c00;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .error-message.active {
+            display: block;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        footer {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #6c757d;
+            border-top: 1px solid #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 Tesseract OCR Test</h1>
+            <p>Upload an image to extract text using Optical Character Recognition</p>
+        </header>
+        
+        <div class="info-bar">
+            <div class="info-item">
+                <span class="info-label">Tesseract Version:</span>
+                <span class="info-value">{{ tesseract_version }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Languages:</span>
+                <span class="info-value">{{ available_languages | join(', ') }}</span>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Drag & drop an image here or click to browse</div>
+                <div class="upload-hint">Supported formats: PNG, JPG, JPEG, GIF, BMP, TIFF, WEBP</div>
+                <input type="file" id="fileInput" accept="image/*">
+            </div>
+            
+            <img id="previewImage" class="preview-image" alt="Image preview">
+            
+            <div class="options">
+                <div class="option-group">
+                    <label for="language">Language</label>
+                    <select id="language">
+                        {% for lang in available_languages %}
+                        <option value="{{ lang }}">{{ lang }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label for="psm">Page Segmentation Mode (PSM)</label>
+                    <select id="psm">
+                        <option value="">Auto</option>
+                        <option value="3">Fully automatic page segmentation (Default)</option>
+                        <option value="6">Uniform block of text</option>
+                        <option value="7">Text line</option>
+                        <option value="8">Single word</option>
+                        <option value="10">Single character</option>
+                    </select>
+                </div>
+                <div class="option-group checkbox-group">
+                    <input type="checkbox" id="details" checked>
+                    <label for="details">Show detailed statistics</label>
+                </div>
+            </div>
+            
+            <button class="btn" id="processBtn" disabled>🚀 Process Image</button>
+            <button class="btn test-btn" id="testBtn">🧪 Run Built-in Test</button>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <div>Processing image...</div>
+            </div>
+            
+            <div class="error-message" id="errorMessage"></div>
+            
+            <div class="result-section" id="resultSection">
+                <div class="result-header">
+                    <h2 class="result-title">📄 Extracted Text</h2>
+                    <button onclick="copyResult()" style="padding: 8px 15px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">📋 Copy</button>
+                </div>
+                <div class="result-box" id="resultText"></div>
+                
+                <div class="stats" id="statsSection">
+                    <div class="stat-card">
+                        <div class="stat-value" id="confidenceStat">-</div>
+                        <div class="stat-label">Avg. Confidence (%)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="wordsStat">-</div>
+                        <div class="stat-label">Words Detected</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="linesStat">-</div>
+                        <div class="stat-label">Lines Detected</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Tesseract OCR Test Project • Built with Flask & pytesseract</p>
+        </footer>
+    </div>
+    
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const previewImage = document.getElementById('previewImage');
+        const processBtn = document.getElementById('processBtn');
+        const testBtn = document.getElementById('testBtn');
+        const loading = document.getElementById('loading');
+        const resultSection = document.getElementById('resultSection');
+        const resultText = document.getElementById('resultText');
+        const errorMessage = document.getElementById('errorMessage');
+        const statsSection = document.getElementById('statsSection');
+        
+        let selectedFile = null;
+        
+        // Upload area click
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+        
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showError('Please select a valid image file');
+                return;
+            }
+            
+            selectedFile = file;
+            processBtn.disabled = false;
+            
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                previewImage.classList.add('active');
+            };
+            reader.readAsDataURL(file);
+            
+            hideError();
+            resultSection.classList.remove('active');
+        }
+        
+        processBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+            
+            showLoading(true);
+            hideError();
+            resultSection.classList.remove('active');
+            
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+            formData.append('lang', document.getElementById('language').value);
+            
+            const psm = document.getElementById('psm').value;
+            if (psm) {
+                formData.append('psm', psm);
+            }
+            
+            formData.append('details', document.getElementById('details').checked ? 'true' : 'false');
+            
+            try {
+                const response = await fetch('/api/ocr', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    displayResult(data);
+                } else {
+                    showError(data.error || 'OCR processing failed');
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        });
+        
+        testBtn.addEventListener('click', async () => {
+            showLoading(true);
+            hideError();
+            resultSection.classList.remove('active');
+            
+            try {
+                const response = await fetch('/api/test', {
+                    method: 'GET'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultText.textContent = `Test Result:\n${data.ocr_result}\n\nExpected: ${data.test_image_text}\n\nMatch: ${data.match ? '✅ Yes' : '❌ No'}\n\nTesseract Version: ${data.tesseract_version}\nAvailable Languages: ${data.available_languages.join(', ')}`;
+                    
+                    statsSection.style.display = 'none';
+                    resultSection.classList.add('active');
+                } else {
+                    showError(data.error || 'Test failed');
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        });
+        
+        function displayResult(data) {
+            resultText.textContent = data.text;
+            
+            if (data.details) {
+                document.getElementById('confidenceStat').textContent = data.details.confidence.toFixed(1);
+                document.getElementById('wordsStat').textContent = data.details.words;
+                document.getElementById('linesStat').textContent = data.details.lines;
+                statsSection.style.display = 'grid';
+            } else {
+                statsSection.style.display = 'none';
+            }
+            
+            resultSection.classList.add('active');
+        }
+        
+        function showLoading(show) {
+            loading.classList.toggle('active', show);
+            processBtn.disabled = show || !selectedFile;
+            testBtn.disabled = show;
+        }
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('active');
+        }
+        
+        function hideError() {
+            errorMessage.classList.remove('active');
+        }
+        
+        function copyResult() {
+            const text = resultText.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Text copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        }
+    </script>
+</body>
+</html>
