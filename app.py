@@ -5,27 +5,55 @@ A simple Flask web application to test Tesseract OCR functionality.
 
 import os
 import sys
+import platform
 from flask import Flask, render_template, request, jsonify
 import pytesseract
 from PIL import Image
 import io
 
-# Явно указываем путь к исполняемому файлу tesseract
-# Tesseract обычно установлен в /usr/bin/tesseract в Linux/Docker окружениях
-tesseract_cmd = '/usr/bin/tesseract'
-
-if os.path.isfile(tesseract_cmd):
-    pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
-    TESSERACT_AVAILABLE = True
-else:
-    # Пытаемся найти через PATH
-    import shutil
-    tesseract_cmd = shutil.which('tesseract')
-    if tesseract_cmd:
-        pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+# === НАСТРОЙКА TESSERACT ДЛЯ WINDOWS ===
+# Если система Windows, указываем путь к tesseract.exe явно
+if platform.system() == 'Windows':
+    # Стандартный путь установки Tesseract OCR в Windows
+    tesseract_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    
+    # Проверяем, существует ли файл по этому пути
+    if os.path.exists(tesseract_path):
+        pytesseract.pytesseract.tesseract_cmd = tesseract_path
+        print(f"[OK] Tesseract найден по пути: {tesseract_path}")
         TESSERACT_AVAILABLE = True
     else:
-        TESSERACT_AVAILABLE = False
+        # Если не найден в стандартном месте, пробуем альтернативное (для 32-bit или старых версий)
+        alt_path = r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"
+        if os.path.exists(alt_path):
+            pytesseract.pytesseract.tesseract_cmd = alt_path
+            print(f"[OK] Tesseract найден по пути: {alt_path}")
+            TESSERACT_AVAILABLE = True
+        else:
+            print(f"[ERROR] Tesseract не найден! Пожалуйста, установите Tesseract OCR.")
+            print(f"Ожидаемый путь: {tesseract_path}")
+            print(f"Или укажите правильный путь в коде app.py вручную.")
+            TESSERACT_AVAILABLE = False
+else:
+    # Для Linux/Mac оставляем как есть (обычно добавлен в PATH)
+    # Явно указываем путь к исполняемому файлу tesseract
+    tesseract_cmd = '/usr/bin/tesseract'
+    
+    if os.path.isfile(tesseract_cmd):
+        pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+        TESSERACT_AVAILABLE = True
+        print(f"[OK] Tesseract найден по пути: {tesseract_cmd}")
+    else:
+        # Пытаемся найти через PATH
+        import shutil
+        tesseract_cmd = shutil.which('tesseract')
+        if tesseract_cmd:
+            pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+            TESSERACT_AVAILABLE = True
+            print(f"[OK] Tesseract найден через PATH: {tesseract_cmd}")
+        else:
+            TESSERACT_AVAILABLE = False
+            print("[ERROR] Tesseract не найден в системе")
 
 app = Flask(__name__)
 
