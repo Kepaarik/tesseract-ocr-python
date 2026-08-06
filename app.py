@@ -15,11 +15,13 @@ import shutil
 from pdf2image import convert_from_path
 from docx import Document
 
-# === НАСТРОЙКА TESSERACT ДЛЯ WINDOWS ===
-# Если система Windows, указываем путь к tesseract.exe явно
+# === НАСТРОЙКА TESSERACT И POPPLER ДЛЯ WINDOWS ===
+# Если система Windows, указываем пути к tesseract.exe и poppler явно
 if platform.system() == 'Windows':
     # Стандартный путь установки Tesseract OCR в Windows
     tesseract_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    # Путь к Poppler (необходим для работы с PDF)
+    poppler_path = r"C:\Program Files\poppler\Library\bin"
     
     # Проверяем, существует ли файл по этому пути
     if os.path.exists(tesseract_path):
@@ -38,6 +40,18 @@ if platform.system() == 'Windows':
             print(f"Ожидаемый путь: {tesseract_path}")
             print(f"Или укажите правильный путь в коде app.py вручную.")
             TESSERACT_AVAILABLE = False
+
+    # Настраиваем путь к Poppler для pdf2image
+    if os.path.exists(poppler_path):
+        # Добавляем путь к Poppler в переменную окружения PATH
+        os.environ['PATH'] = poppler_path + os.pathsep + os.environ.get('PATH', '')
+        print(f"[OK] Poppler найден и добавлен в PATH: {poppler_path}")
+        POPPLER_AVAILABLE = True
+    else:
+        print(f"[WARN] Poppler не найден по пути: {poppler_path}")
+        print(f"Обработка PDF файлов может не работать.")
+        print(f"Пожалуйста, установите Poppler или укажите правильный путь в коде.")
+        POPPLER_AVAILABLE = False
 else:
     # Для Linux/Mac оставляем как есть (обычно добавлен в PATH)
     # Явно указываем путь к исполняемому файлу tesseract
